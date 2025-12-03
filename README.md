@@ -1,5 +1,7 @@
 # MyTube - Private Video Hosting Platform
 
+> **⚠️ AI-Generated Application**: This application was generated using AI assistance. While most features have been tested and work as intended, some edge cases or features may not function perfectly. Please report any issues you encounter.
+
 A secure, self-hosted video sharing application designed for private organizations and teams. Protected by Cloudflare Zero Trust authentication.
 
 ## 🚀 Features
