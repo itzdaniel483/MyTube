@@ -1,0 +1,111 @@
+{
+  "videos": [
+    {
+      "id": "1764610510479",
+      "title": "Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "filename": "1764610510447-Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "path": "/uploads/1764610510447-Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "thumbnail": "/uploads/thumbnails/1764610510447-Battlefieldâ¢ 6 - 2025-11-04 22-16-12.png",
+      "category": "Uncategorized",
+      "tags": [
+        "gaming",
+        "fps",
+        "test"
+      ],
+      "createdAt": "2025-12-01T17:35:10.479Z",
+      "deleted": true,
+      "deletedAt": "2025-12-02T00:17:04.091Z"
+    },
+    {
+      "id": "f09c1634-3c3f-4062-b5a1-6cdbb57e84dc",
+      "title": "Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "filename": "1764653453404-Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "path": "/uploads/1764653453404-Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "thumbnail": null,
+      "category": "Uncategorized",
+      "tags": [],
+      "createdAt": "2025-12-02T05:30:53.538Z",
+      "deleted": true,
+      "deletedAt": "2025-12-02T05:33:47.834Z"
+    },
+    {
+      "id": "ffd9bc69-bf7b-4af7-baba-d8cfc38c8072",
+      "title": "Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "filename": "1764653644461-Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "path": "/uploads/1764653644461-Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "thumbnail": null,
+      "category": "Uncategorized",
+      "tags": [],
+      "createdAt": "2025-12-02T05:34:04.537Z",
+      "deleted": true,
+      "deletedAt": "2025-12-02T05:37:35.782Z"
+    },
+    {
+      "id": "6eabda78-e6f3-4574-9677-6f9fd6c64b48",
+      "title": "Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "filename": "1764653859370-Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "path": "/uploads/1764653859370-Battlefieldâ¢ 6 - 2025-11-04 22-16-12.mp4",
+      "thumbnail": "/uploads/thumbnails/thumb-6eabda78-e6f3-4574-9677-6f9fd6c64b48.png",
+      "category": "Uncategorized",
+      "tags": [],
+      "createdAt": "2025-12-02T05:37:40.399Z",
+      "deleted": true,
+      "deletedAt": "2025-12-03T03:54:37.793Z"
+    },
+    {
+      "id": "c9e8b51a-f615-4e60-b757-94018854a7d3",
+      "title": "Battlefield™ 6 - 2025-11-04 22-16-12.mp4",
+      "filename": "1764734083536-Battlefield™ 6 - 2025-11-04 22-16-12.mp4",
+      "path": "/uploads/1764734083536-Battlefield™ 6 - 2025-11-04 22-16-12.mp4",
+      "thumbnail": "/uploads/thumbnails/thumb-c9e8b51a-f615-4e60-b757-94018854a7d3.png",
+      "category": "Uncategorized",
+      "tags": [],
+      "createdAt": "2025-12-03T03:54:44.680Z",
+      "deleted": true,
+      "deletedAt": "2025-12-03T10:12:31.019Z"
+    },
+    {
+      "id": "079840cd-699c-46c8-8ddc-2d820148f078",
+      "title": "Battlefield™ 6 - 2025-11-04 22-16-12.mp4",
+      "filename": "1764756757570-Battlefield™ 6 - 2025-11-04 22-16-12.mp4",
+      "path": "/uploads/1764756757570-Battlefield™ 6 - 2025-11-04 22-16-12.mp4",
+      "thumbnail": "/uploads/thumbnails/thumb-079840cd-699c-46c8-8ddc-2d820148f078.png",
+      "category": "Test",
+      "tags": [],
+      "createdAt": "2025-12-03T10:12:38.504Z"
+    }
+  ],
+  "categories": [
+    "Test"
+  ],
+  "tags": [
+    "gaming",
+    "fps",
+    "battlefield",
+    "test",
+    "cock"
+  ],
+  "users": [
+    {
+      "id": "7ec8cd37-cb16-4f8a-9420-3106133fe2e9",
+      "username": "testuser",
+      "password": "$2b$10$fVx4PWrVW5o.GJxnhXYSGuORk9eaLAGF/NWOsfyH1de03ai1sXEu.",
+      "role": "admin"
+    },
+    {
+      "id": "f1fa8aa1-2fbb-420c-96d2-212b2d0134d5",
+      "email": "daniel.fitton2@gmail.com",
+      "username": "daniel.fitton2",
+      "displayName": "Daniel Fitton",
+      "role": "admin",
+      "createdAt": "2025-12-02T05:14:11.263Z"
+    }
+  ],
+  "settings": {
+    "enableDevMock": false,
+    "logoutUrl": "https://bytemypc.cloudflareaccess.com/cdn-cgi/access/logout",
+    "appTitle": "MyTube",
+    "maxUploadSizeMB": 500,
+    "defaultCategory": "Uncategorized"
+  }
+}

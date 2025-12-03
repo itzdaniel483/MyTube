@@ -1,0 +1,553 @@
+const express = require('express');
+const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+const { readDb, writeDb } = require('./db');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
+const cookieParser = require('cookie-parser');
+
+const app = express();
+const PORT = 5000;
+
+// Cloudflare / Proxy Support
+app.set('trust proxy', 1);
+
+app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true
+}));
+app.use(express.json());
+app.use(cookieParser());
+
+// Session Configuration
+app.use(session({
+    secret: 'your-secret-key-change-this-in-prod',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false,
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000
+    }
+}));
+
+// Login endpoint
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+    const db = readDb();
+
+    let user = db.users.find(u => u.username === username);
+
+    // Demo mode: if no users exist, create first user as admin
+    if (!user && db.users.length === 0) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user = {
+            id: uuidv4(),
+            username,
+            password: hashedPassword,
+            role: 'admin' // First user is admin
+        };
+        db.users.push(user);
+        writeDb(db);
+    } else if (!user) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+    } else {
+        // Verify password
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+    }
+
+    // Create session
+    req.session.userId = user.id;
+    req.session.role = user.role || 'user';
+    res.json({ username: user.username, role: user.role || 'user' });
+});
+
+// Logout endpoint
+app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            return res.status(500).json({ error: 'Could not log out' });
+        }
+        res.clearCookie('connect.sid');
+        res.json({ message: 'Logged out' });
+    });
+});
+
+// Check auth status
+app.get('/api/auth/me', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const db = readDb();
+    const user = db.users.find(u => u.id === req.session.userId);
+    if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+    }
+    res.json({ username: user.username, role: user.role || 'user' });
+});
+
+// Auth middleware
+const requireAuth = (req, res, next) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+    }
+    next();
+};
+
+// Admin middleware
+const requireAdmin = (req, res, next) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+    }
+    const db = readDb();
+    const user = db.users.find(u => u.id === req.session.userId);
+    if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+};
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
+
+// Ensure thumbnails directory exists
+const thumbDir = path.join(uploadDir, 'thumbnails');
+if (!fs.existsSync(thumbDir)) {
+    fs.mkdirSync(thumbDir);
+}
+
+// Set ffmpeg path
+ffmpeg.setFfmpegPath(ffmpegPath);
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(uploadDir));
+
+// Multer setup
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage });
+
+app.get('/', (req, res) => {
+    res.send('Video Hosting Server Running');
+});
+
+app.get('/api/videos', (req, res) => {
+    const db = readDb();
+    // Filter out deleted videos
+    const activeVideos = db.videos.filter(v => !v.deleted);
+    res.json(activeVideos);
+});
+
+app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).send('No file uploaded');
+    }
+
+    const { title, category, tags } = req.body;
+    const db = readDb();
+    const videoId = uuidv4();
+    const thumbnailFilename = `thumb-${videoId}.png`;
+
+    // Generate thumbnail
+    ffmpeg(req.file.path)
+        .screenshots({
+            timestamps: ['20%'],
+            filename: thumbnailFilename,
+            folder: thumbDir,
+            size: '320x180'
+        })
+        .on('end', () => {
+            const newVideo = {
+                id: videoId,
+                title: title || req.file.originalname,
+                filename: req.file.filename,
+                path: `/uploads/${req.file.filename}`,
+                thumbnail: `/uploads/thumbnails/${thumbnailFilename}`,
+                category: category || 'Uncategorized',
+                tags: tags ? JSON.parse(tags) : [],
+                createdAt: new Date().toISOString()
+            };
+
+            db.videos.push(newVideo);
+
+            // Add category if new
+            if (category && !db.categories.includes(category)) {
+                db.categories.push(category);
+            }
+
+            // Add tags if new
+            if (tags) {
+                const parsedTags = JSON.parse(tags);
+                parsedTags.forEach(tag => {
+                    if (!db.tags.includes(tag)) {
+                        db.tags.push(tag);
+                    }
+                });
+            }
+
+            writeDb(db);
+            res.json(newVideo);
+        })
+        .on('error', (err) => {
+            console.error('Error generating thumbnail:', err);
+            // Fallback without thumbnail if error
+            const newVideo = {
+                id: videoId,
+                title: title || req.file.originalname,
+                filename: req.file.filename,
+                path: `/uploads/${req.file.filename}`,
+                thumbnail: null,
+                category: category || 'Uncategorized',
+                tags: tags ? JSON.parse(tags) : [],
+                createdAt: new Date().toISOString()
+            };
+            db.videos.push(newVideo);
+            writeDb(db);
+            res.json(newVideo);
+        });
+});
+
+// Add tags to video
+app.post('/api/videos/:id/tags', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const { tags } = req.body;
+
+    const db = readDb();
+    const video = db.videos.find(v => v.id === id);
+
+    if (!video) {
+        return res.status(404).json({ error: 'Video not found' });
+    }
+
+    video.tags = tags;
+
+    // Update global tags list
+    tags.forEach(tag => {
+        if (!db.tags.includes(tag)) {
+            db.tags.push(tag);
+        }
+    });
+
+    app.get('/api/tags', (req, res) => {
+        const db = readDb();
+        res.json(db.tags);
+    });
+
+    // Get all users (admin only)
+    app.get('/api/users', requireAdmin, (req, res) => {
+        const db = readDb();
+        // Don't send passwords to frontend
+        const users = db.users.map(u => ({
+            id: u.id,
+            username: u.username,
+            role: u.role || 'user'
+        }));
+        res.json(users);
+    });
+
+    // Update user role (admin only)
+    app.patch('/api/users/:id/role', requireAdmin, (req, res) => {
+        const { id } = req.params;
+        const { role } = req.body;
+
+        if (role !== 'admin' && role !== 'user') {
+            return res.status(400).json({ error: 'Invalid role. Must be "admin" or "user"' });
+        }
+
+        const db = readDb();
+        const user = db.users.find(u => u.id === id);
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        user.role = role;
+        writeDb(db);
+
+        res.json({
+            const user = db.users.find(u => u.id === req.session.userId);
+            if(!user) {
+                return res.status(401).json({ error: 'User not found' });
+            }
+    res.json({ username: user.username, role: user.role || 'user' });
+        });
+
+        // Auth middleware
+        const requireAuth = (req, res, next) => {
+            if (!req.session.userId) {
+                return res.status(401).json({ error: 'Authentication required' });
+            }
+            next();
+        };
+
+        // Admin middleware
+        const requireAdmin = (req, res, next) => {
+            if (!req.session.userId) {
+                return res.status(401).json({ error: 'Authentication required' });
+            }
+            const db = readDb();
+            const user = db.users.find(u => u.id === req.session.userId);
+            if (!user || user.role !== 'admin') {
+                return res.status(403).json({ error: 'Admin access required' });
+            }
+            next();
+        };
+
+        // Ensure uploads directory exists
+        const uploadDir = path.join(__dirname, 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir);
+        }
+
+        // Ensure thumbnails directory exists
+        const thumbDir = path.join(uploadDir, 'thumbnails');
+        if (!fs.existsSync(thumbDir)) {
+            fs.mkdirSync(thumbDir);
+        }
+
+        // Set ffmpeg path
+        ffmpeg.setFfmpegPath(ffmpegPath);
+
+        // Serve static files from uploads directory
+        app.use('/uploads', express.static(uploadDir));
+
+        // Multer setup
+        const storage = multer.diskStorage({
+            destination: (req, file, cb) => {
+                cb(null, 'uploads/');
+            },
+            filename: (req, file, cb) => {
+                cb(null, Date.now() + '-' + file.originalname);
+            }
+        });
+        const upload = multer({ storage });
+
+        app.get('/', (req, res) => {
+            res.send('Video Hosting Server Running');
+        });
+
+        app.get('/api/videos', (req, res) => {
+            const db = readDb();
+            // Filter out deleted videos
+            const activeVideos = db.videos.filter(v => !v.deleted);
+            res.json(activeVideos);
+        });
+
+        app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
+            if (!req.file) {
+                return res.status(400).send('No file uploaded');
+            }
+
+            const { title, category, tags } = req.body;
+            const db = readDb();
+            const videoId = uuidv4();
+            const thumbnailFilename = `thumb-${videoId}.png`;
+
+            // Generate thumbnail
+            ffmpeg(req.file.path)
+                .screenshots({
+                    timestamps: ['20%'],
+                    filename: thumbnailFilename,
+                    folder: thumbDir,
+                    size: '320x180'
+                })
+                .on('end', () => {
+                    const newVideo = {
+                        id: videoId,
+                        title: title || req.file.originalname,
+                        filename: req.file.filename,
+                        path: `/uploads/${req.file.filename}`,
+                        thumbnail: `/uploads/thumbnails/${thumbnailFilename}`,
+                        category: category || 'Uncategorized',
+                        tags: tags ? JSON.parse(tags) : [],
+                        createdAt: new Date().toISOString()
+                    };
+
+                    db.videos.push(newVideo);
+
+                    // Add category if new
+                    if (category && !db.categories.includes(category)) {
+                        db.categories.push(category);
+                    }
+
+                    // Add tags if new
+                    if (tags) {
+                        const parsedTags = JSON.parse(tags);
+                        parsedTags.forEach(tag => {
+                            if (!db.tags.includes(tag)) {
+                                db.tags.push(tag);
+                            }
+                        });
+                    }
+
+                    writeDb(db);
+                    res.json(newVideo);
+                })
+                .on('error', (err) => {
+                    console.error('Error generating thumbnail:', err);
+                    // Fallback without thumbnail if error
+                    const newVideo = {
+                        id: videoId,
+                        title: title || req.file.originalname,
+                        filename: req.file.filename,
+                        path: `/uploads/${req.file.filename}`,
+                        thumbnail: null,
+                        category: category || 'Uncategorized',
+                        tags: tags ? JSON.parse(tags) : [],
+                        createdAt: new Date().toISOString()
+                    };
+                    db.videos.push(newVideo);
+                    writeDb(db);
+                    res.json(newVideo);
+                });
+        });
+
+        // Add tags to video
+        app.post('/api/videos/:id/tags', requireAuth, (req, res) => {
+            const { id } = req.params;
+            const { tags } = req.body;
+
+            const db = readDb();
+            const video = db.videos.find(v => v.id === id);
+
+            if (!video) {
+                return res.status(404).json({ error: 'Video not found' });
+            }
+
+            video.tags = tags;
+
+            // Update global tags list
+            tags.forEach(tag => {
+                if (!db.tags.includes(tag)) {
+                    db.tags.push(tag);
+                }
+            });
+
+            writeDb(db);
+            res.json(video);
+        });
+
+        app.get('/api/tags', (req, res) => {
+            const db = readDb();
+            res.json(db.tags);
+        });
+
+        // Get all users (admin only)
+        app.get('/api/users', requireAdmin, (req, res) => {
+            const db = readDb();
+            // Don't send passwords to frontend
+            const users = db.users.map(u => ({
+                id: u.id,
+                username: u.username,
+                role: u.role || 'user'
+            }));
+            res.json(users);
+        });
+
+        // Update user role (admin only)
+        app.patch('/api/users/:id/role', requireAdmin, (req, res) => {
+            const { id } = req.params;
+            const { role } = req.body;
+
+            if (role !== 'admin' && role !== 'user') {
+                return res.status(400).json({ error: 'Invalid role. Must be "admin" or "user"' });
+            }
+
+            const db = readDb();
+            const user = db.users.find(u => u.id === id);
+
+            if (!user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            user.role = role;
+            writeDb(db);
+
+            res.json({
+                id: user.id,
+                username: user.username,
+                role: user.role
+            });
+        });
+
+        // Get trash (deleted videos) - admin only
+        app.get('/api/videos/trash', requireAdmin, (req, res) => {
+            const db = readDb();
+            const trashedVideos = db.videos.filter(v => v.deleted);
+            res.json(trashedVideos);
+        });
+
+        // Restore video from trash - admin only
+        app.patch('/api/videos/:id/restore', requireAdmin, (req, res) => {
+            const { id } = req.params;
+            const db = readDb();
+
+            const video = db.videos.find(v => v.id === id);
+            if (!video) {
+                return res.status(404).json({ error: 'Video not found' });
+            }
+
+            if (!video.deleted) {
+                return res.status(400).json({ error: 'Video is not in trash' });
+            }
+
+            delete video.deleted;
+            delete video.deletedAt;
+            writeDb(db);
+
+            res.json({ message: 'Video restored', video });
+        });
+
+        // Permanently delete video - admin only
+        app.delete('/api/videos/:id/permanent', requireAdmin, (req, res) => {
+            const { id } = req.params;
+            const db = readDb();
+
+            const videoIndex = db.videos.findIndex(v => v.id === id);
+            if (videoIndex === -1) {
+                return res.status(404).json({ error: 'Video not found' });
+            }
+
+            const video = db.videos[videoIndex];
+
+            // Delete video file
+            const videoPath = path.join(__dirname, 'uploads', path.basename(video.path));
+            if (fs.existsSync(videoPath)) {
+                fs.unlinkSync(videoPath);
+            }
+
+            // Delete thumbnail if exists
+            if (video.thumbnail) {
+                const thumbnailPath = path.join(__dirname, 'uploads', 'thumbnails', path.basename(video.thumbnail));
+                if (fs.existsSync(thumbnailPath)) {
+                    fs.unlinkSync(thumbnailPath);
+                }
+            }
+
+            // Remove from database
+            db.videos.splice(videoIndex, 1);
+            writeDb(db);
+
+            res.json({ message: 'Video permanently deleted' });
+        });
+
+        app.listen(PORT, () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+        });

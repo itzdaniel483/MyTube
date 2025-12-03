@@ -1,0 +1,134 @@
+const express = require('express');
+const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+const { readDb, writeDb } = require('./db');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
+const cookieParser = require('cookie-parser');
+
+const app = express();
+const PORT = 5000;
+
+// Cloudflare / Proxy Support
+app.set('trust proxy', 1);
+
+app.use(cors({
+    origin: 'http://localhost:5173', // Vite default port
+    credentials: true
+}));
+app.use(express.json());
+app.use(cookieParser());
+
+// Session Configuration
+app.use(session({
+    secret: 'your-secret-key-change-this-in-prod', // In a real app, use env var
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+
+        // Ensure thumbnails directory exists
+        const thumbDir = path.join(uploadDir, 'thumbnails');
+        if(!fs.existsSync(thumbDir)) {
+    fs.mkdirSync(thumbDir);
+}
+
+                    // Set ffmpeg path
+                    ffmpeg.setFfmpegPath(ffmpegPath);
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(uploadDir));
+
+// Multer setup
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage });
+
+app.get('/', (req, res) => {
+    res.send('Video Hosting Server Running');
+});
+
+app.get('/api/videos', (req, res) => {
+    const db = readDb();
+    res.json(db.videos);
+});
+
+app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).send('No file uploaded');
+    }
+
+    const { title, category, tags } = req.body;
+    const db = readDb();
+    const videoId = uuidv4();
+    const thumbnailFilename = `thumb-${videoId}.png`;
+
+    // Generate thumbnail
+    ffmpeg(req.file.path)
+        .screenshots({
+            timestamps: ['20%'],
+            filename: thumbnailFilename,
+            folder: thumbDir,
+            size: '320x180'
+        })
+        .on('end', () => {
+            const newVideo = {
+                id: videoId,
+                title: title || req.file.originalname,
+                filename: req.file.filename,
+                path: `/uploads/${req.file.filename}`,
+                thumbnail: `/uploads/thumbnails/${thumbnailFilename}`,
+                category: category || 'Uncategorized',
+                tags: tags ? JSON.parse(tags) : [],
+                createdAt: new Date().toISOString()
+            };
+
+            db.videos.push(newVideo);
+
+            // Add category if new
+            if (category && !db.categories.includes(category)) {
+                db.categories.push(category);
+            }
+
+            // Add tags if new
+            if (tags) {
+                const parsedTags = JSON.parse(tags);
+                parsedTags.forEach(tag => {
+                    if (!db.tags.includes(tag)) {
+                        db.tags.push(tag);
+                    }
+                });
+            }
+
+            writeDb(db);
+            res.json(newVideo);
+        })
+        .on('error', (err) => {
+            console.error('Error generating thumbnail:', err);
+            // Fallback without thumbnail if error
+            const newVideo = {
+                id: videoId,
+                title: title || req.file.originalname,
+                filename: req.file.filename,
+                path: `/uploads/${req.file.filename}`,
+                thumbnail: null,
+                category: category || 'Uncategorized',
+
+                app.get('/api/tags', (req, res) => {
+                    const db = readDb();
+                    res.json(db.tags);
+                });
+
+                app.listen(PORT, () => {
+                    console.log(`Server running on http://localhost:${PORT}`);
+                });
