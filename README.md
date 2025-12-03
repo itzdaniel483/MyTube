@@ -54,40 +54,24 @@ A secure, self-hosted video sharing application designed for private organizatio
 
 1.  **Clone/Download the repository** to your local machine.
 
-2.  **Install Backend Dependencies**:
+2.  **Install All Dependencies**:
     Open a terminal in the project root and run:
     ```bash
-    cd server
-    npm install
+    npm run install-all
     ```
-
-3.  **Install Frontend Dependencies**:
-    Open a **new** terminal window in the project root and run:
-    ```bash
-    cd client
-    npm install
-    ```
+    *This will install dependencies for both the backend and frontend.*
 
 ### Running the Application
 
-You need to run both the backend and frontend servers simultaneously.
+Simply run from the project root:
 
-1.  **Start the Backend Server**:
-    In your **server** terminal:
-    ```bash
-    npm start
-    ```
-    *The server will start on `http://localhost:3000`.*
+```bash
+npm start
+```
 
-2.  **Start the Frontend Client**:
-    In your **client** terminal:
-    ```bash
-    npm run dev
-    ```
-    *The client will start on `http://localhost:5173`.*
+This will start both the backend server (port 3000) and frontend client (port 5173) simultaneously.
 
-3.  **Access the App**:
-    Open your browser and navigate to `http://localhost:5173`.
+**Access the App**: Open your browser and navigate to `http://localhost:5173`.
 
 ### ⚠️ Important Notes
 - **First Run**: The application is configured to use Cloudflare Zero Trust by default.
