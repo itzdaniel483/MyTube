@@ -155,8 +155,8 @@
     }
   ],
   "settings": {
-    "enableDevMock": false,
-    "logoutUrl": "https://bytemypc.cloudflareaccess.com/cdn-cgi/access/logout",
+    "enableDevMock": true,
+    "logoutUrl": "",
     "appTitle": "MyTube",
     "maxUploadSizeMB": 500,
     "defaultCategory": "Uncategorized"
