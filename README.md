@@ -74,11 +74,12 @@ This will start both the backend server (port 3000) and frontend client (port 51
 **Access the App**: Open your browser and navigate to `http://localhost:5173`.
 
 ### ⚠️ Important Notes
-- **First Run**: The application is configured to use Cloudflare Zero Trust by default.
-- **Local Development**: To log in without Cloudflare (e.g., on localhost), you must enable **Dev Mode**:
-  1.  If you are an admin, go to Settings.
-  2.  Toggle "Require SSO Authentication" to **OFF**.
-  3.  You can now access the app as the test user.
+- **Default Setup**: The application runs in **Dev Mode** by default, allowing you to log in as a test user without Cloudflare SSO.
+- **Enabling SSO** (Optional): If you want to use Cloudflare Zero Trust authentication:
+  1.  Go to Settings (requires admin access).
+  2.  Toggle "Require SSO Authentication" to **ON**.
+  3.  Configure your Cloudflare logout URL.
+  4.  See [Cloudflare SSO Setup Guide](cloudflare-sso-setup.md) for detailed instructions.
 - **Database**: All data is stored locally in `server/db.json`. Do not delete this file unless you want to reset the database.
 
 ## 📝 Configuration
