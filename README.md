@@ -75,6 +75,10 @@ This will start both the backend server (port 3000) and frontend client (port 51
 
 ### ⚠️ Important Notes
 - **Default Setup**: The application runs in **Dev Mode** by default, allowing you to log in as a test user without Cloudflare SSO.
+- **Default Test Account**:
+  - **Username**: `testuser`
+  - **Password**: `password`
+  - **Role**: Admin
 - **Enabling SSO** (Optional): If you want to use Cloudflare Zero Trust authentication:
   1.  Go to Settings (requires admin access).
   2.  Toggle "Require SSO Authentication" to **ON**.
