@@ -4,7 +4,18 @@
 
 A secure, self-hosted video sharing application designed for private organizations and teams. Protected by Cloudflare Zero Trust authentication.
 
-## 🚀 Features
+## � Screenshots
+
+![Sign-in Page](showcase/1.Sign-inPage.png)
+*Welcome page with authentication options*
+
+![Main Gallery](showcase/2.MainPage.png)
+*Video gallery with filtering and search capabilities*
+
+![Upload Interface](showcase/3.%20UploadPage.png)
+*Bulk upload interface supporting multiple files*
+
+## �🚀 Features
 
 ### 🎥 Video Management
 - **Upload**: Drag-and-drop video uploads with progress tracking.
