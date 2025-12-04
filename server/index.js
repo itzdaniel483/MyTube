@@ -12,7 +12,11 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
+
+console.log('Starting server...');
+console.log(`Environment: ${process.env.NODE_ENV}`);
+console.log(`Port: ${PORT}`);
 
 // Cloudflare / Proxy Support
 app.set('trust proxy', 1);
