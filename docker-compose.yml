@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  server:
+    build: ./server
+    container_name: video-hosting-server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server/uploads:/app/uploads
+      - ./server/db.json:/app/db.json
+    restart: unless-stopped
+
+  client:
+    build: ./client
+    container_name: video-hosting-client
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: unless-stopped
