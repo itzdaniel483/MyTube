@@ -1,3 +1,5 @@
+console.log('--- SERVER INITIALIZING ---');
+
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -5,11 +7,19 @@ const path = require('path');
 const { readDb, writeDb } = require('./db');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
-const ffprobePath = require('ffprobe-static').path;
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
+
+// FFmpeg setup with error handling
+let ffmpeg, ffmpegPath, ffprobePath;
+try {
+    ffmpeg = require('fluent-ffmpeg');
+    ffmpegPath = require('ffmpeg-static');
+    ffprobePath = require('ffprobe-static').path;
+    console.log('FFmpeg binaries loaded successfully');
+} catch (err) {
+    console.error('FAILED TO LOAD FFMPEG:', err);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -171,9 +181,18 @@ if (!fs.existsSync(thumbDir)) {
     fs.mkdirSync(thumbDir);
 }
 
-// Set ffmpeg path
-ffmpeg.setFfmpegPath(ffmpegPath);
-ffmpeg.setFfprobePath(ffprobePath);
+// Set ffmpeg path if available
+if (ffmpeg && ffmpegPath && ffprobePath) {
+    try {
+        ffmpeg.setFfmpegPath(ffmpegPath);
+        ffmpeg.setFfprobePath(ffprobePath);
+        console.log('FFmpeg paths set');
+    } catch (err) {
+        console.error('Error setting FFmpeg paths:', err);
+    }
+} else {
+    console.warn('WARNING: FFmpeg not fully loaded. Video processing will fail.');
+}
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(uploadDir));
@@ -609,6 +628,20 @@ app.patch('/api/settings', requireAdmin, (req, res) => {
 
 writeDb(db);
 res.json(db.settings);
+});
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, 'public')));
+
+// The "catchall" handler: for any request that doesn't
+// match one above, send back React's index.html file.
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});
 });
 
 // Serve static files from the React app
