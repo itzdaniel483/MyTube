@@ -1,5 +1,5 @@
 # Build Stage for Client
-FROM node:18-alpine as client-build
+FROM node:18-slim as client-build
 WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm install
@@ -7,7 +7,7 @@ COPY client/ .
 RUN npm run build
 
 # Production Stage for Server
-FROM node:18-alpine
+FROM node:18-slim
 WORKDIR /app
 
 # Install server dependencies
