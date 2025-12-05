@@ -213,9 +213,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-app.get('/', (req, res) => {
-    res.send('Video Hosting Server Running');
-});
 
 app.get('/api/videos', (req, res) => {
     const db = readDb();
