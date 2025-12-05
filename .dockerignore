@@ -4,7 +4,6 @@ server/node_modules
 .git
 .gitignore
 *.log
-dist
-build
 uploads
 server/uploads
+TROUBLESHOOTING.md
