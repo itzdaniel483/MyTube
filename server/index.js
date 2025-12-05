@@ -9,6 +9,7 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
+const config = require('./config');
 
 // FFmpeg setup with error handling
 let ffmpeg, ffmpegPath, ffprobePath;
@@ -22,17 +23,20 @@ try {
 }
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 console.log('Starting server...');
 console.log(`Environment: ${process.env.NODE_ENV}`);
-console.log(`Port: ${PORT}`);
+console.log(`Port: ${config.port}`);
+console.log(`Domain: ${config.appDomain}`);
+console.log(`App URL: ${config.appUrl}`);
+console.log(`CORS Origins: ${config.corsOrigins.join(', ')}`);
 
 // Cloudflare / Proxy Support
 app.set('trust proxy', 1);
 
+// CORS - uses config.corsOrigins
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://video.techydan.uk'],
+    origin: config.corsOrigins,
     credentials: true
 }));
 app.use(express.json());
@@ -653,8 +657,8 @@ if (fs.existsSync(publicPath)) {
     });
 }
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✓ Server running on http://0.0.0.0:${PORT}`);
+const server = app.listen(config.port, '0.0.0.0', () => {
+    console.log(`✓ Server running on http://0.0.0.0:${config.port}`);
     console.log(`✓ Ready to accept connections`);
 });
 
