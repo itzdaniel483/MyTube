@@ -626,12 +626,12 @@ app.patch('/api/settings', requireAdmin, (req, res) => {
     res.json(db.settings);
 });
 
-// Serve static files from the React app
+// Serve static files from the React app (but not for /api or /uploads routes)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
-app.get('*', (req, res) => {
+// The "catchall" handler: for any request that doesn't match API routes
+// send back React's index.html file for client-side routing
+app.get(/^(?!\/api|\/uploads).*$/, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
