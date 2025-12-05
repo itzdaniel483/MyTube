@@ -4,7 +4,11 @@ WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm install
 COPY client/ .
-RUN npm run build
+RUN npm run build && \
+    echo "=== Build completed ===" && \
+    ls -la dist/ && \
+    echo "=== Files in dist ===" && \
+    find dist -type f
 
 # Production Stage for Server
 FROM node:18-slim
@@ -20,10 +24,12 @@ COPY server/ .
 # Copy built client assets to server's public directory
 COPY --from=client-build /app/client/dist ./public
 
-# Create uploads directory and ensure public exists
+# Create uploads directory and verify public exists
 RUN mkdir -p uploads/thumbnails && \
-    mkdir -p public && \
-    ls -la public/ || echo "Warning: public directory empty"
+    echo "=== Checking public directory ===" && \
+    ls -la public/ && \
+    echo "=== Files in public ===" && \
+    find public -type f | head -20 || echo "WARNING: public directory empty or missing files"
 
 EXPOSE 5000
 
