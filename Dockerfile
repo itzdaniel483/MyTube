@@ -1,15 +1,3 @@
-# Build Stage for Client
-FROM node:18-slim as client-build
-WORKDIR /app/client
-COPY client/package*.json ./
-RUN npm install
-COPY client/ .
-RUN npm run build && \
-    echo "=== Build completed ===" && \
-    ls -la dist/ && \
-    echo "=== Files in dist ===" && \
-    find dist -type f
-
 # Production Stage for Server
 FROM node:18-slim
 WORKDIR /app
@@ -21,15 +9,17 @@ RUN npm install --production
 # Copy server code
 COPY server/ .
 
-# Copy built client assets to server's public directory
-COPY --from=client-build /app/client/dist ./public
+# Copy pre-built client assets to server's public directory
+COPY client/dist ./public
 
-# Create uploads directory and verify public exists
-RUN mkdir -p uploads/thumbnails && \
-    echo "=== Checking public directory ===" && \
+# Verify files were copied
+RUN echo "=== Checking public directory ===" && \
     ls -la public/ && \
     echo "=== Files in public ===" && \
-    find public -type f | head -20 || echo "WARNING: public directory empty or missing files"
+    find public -type f | head -20
+
+# Create uploads directory
+RUN mkdir -p uploads/thumbnails
 
 EXPOSE 5000
 
