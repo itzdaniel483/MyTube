@@ -627,14 +627,51 @@ app.patch('/api/settings', requireAdmin, (req, res) => {
 });
 
 // Serve static files from the React app (but not for /api or /uploads routes)
-app.use(express.static(path.join(__dirname, 'public')));
+const publicPath = path.join(__dirname, 'public');
+console.log(`Attempting to serve static files from: ${publicPath}`);
 
-// The "catchall" handler: for any request that doesn't match API routes
-// send back React's index.html file for client-side routing
-app.get(/^(?!\/api|\/uploads).*$/, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Check if public directory exists
+if (fs.existsSync(publicPath)) {
+    console.log('Public directory found');
+    app.use(express.static(publicPath));
+
+    // The "catchall" handler: for any request that doesn't match API routes
+    // send back React's index.html file for client-side routing
+    const indexPath = path.join(publicPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        console.log('index.html found');
+        app.get(/^(?!\/api|\/uploads).*$/, (req, res) => {
+            res.sendFile(indexPath);
+        });
+    } else {
+        console.warn('WARNING: index.html not found in public directory');
+        app.get(/^(?!\/api|\/uploads).*$/, (req, res) => {
+            res.status(503).send('Frontend not available - build may have failed');
+        });
+    }
+} else {
+    console.error('ERROR: Public directory not found!');
+    app.get(/^(?!\/api|\/uploads).*$/, (req, res) => {
+        res.status(503).send('Frontend not available - public directory missing');
+    });
+}
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✓ Server running on http://0.0.0.0:${PORT}`);
+    console.log(`✓ Ready to accept connections`);
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+// Handle server errors
+server.on('error', (err) => {
+    console.error('Server error:', err);
+    process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
 });
