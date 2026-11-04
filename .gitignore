@@ -1,1 +1,8 @@
 node_modules
+
+# Runtime data: never commit (claude, 2026-11-04)
+server/db.json
+server/uploads/*
+!server/uploads/.gitkeep
+server/thumbnails/
+.env
