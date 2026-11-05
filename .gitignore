@@ -6,3 +6,6 @@ server/uploads/*
 !server/uploads/.gitkeep
 server/thumbnails/
 .env
+
+# 2026-11-05 claude: runtime data lives outside the repo; built front end is linked in
+server/public

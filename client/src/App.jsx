@@ -196,7 +196,7 @@ function AppContent() {
                     onClick={login}
                     className="mt-6 px-8 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold transition-colors shadow-lg shadow-primary-500/25"
                   >
-                    Retry Authentication
+                    Sign in
                   </button>
                 </>
               )}

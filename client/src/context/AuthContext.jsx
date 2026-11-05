@@ -43,9 +43,14 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = () => {
+  const login = async () => {
     localStorage.removeItem('app_logged_out');
     localStorage.removeItem('dev_logged_out');
+    // Demo copy (AUTH_MODE=demo): sign in by picking a demo person.
+    try {
+      const cfg = await (await fetch('/api/auth/config')).json();
+      if (cfg.signIn) { window.location.href = cfg.signIn; return; }
+    } catch { /* fall back to Cloudflare */ }
     setLoading(true);
     checkAuth();
   };

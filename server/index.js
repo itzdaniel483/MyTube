@@ -31,96 +31,49 @@ console.log(`Domain: ${config.appDomain}`);
 console.log(`App URL: ${config.appUrl}`);
 console.log(`CORS Origins: ${config.corsOrigins.join(', ')}`);
 
-// Cloudflare / Proxy Support
-app.set('trust proxy', 1);
+// Only trust X-Forwarded-* when a proxy is in front (TRUST_PROXY=1, e.g. behind Nginx Proxy Manager / Cloudflare).
+if (process.env.TRUST_PROXY) app.set('trust proxy', 1);
 
 // CORS - uses config.corsOrigins
 app.use(cors({
     origin: config.corsOrigins,
     credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
+app.use((req, res, next) => { // basic security headers
+    res.set({ 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin', 'X-Frame-Options': 'SAMEORIGIN' });
+    next();
+});
 
-// Cloudflare Access Middleware
-const authenticateCF = (req, res, next) => {
-    // Try to get email from header first (for direct cloudflared connections)
-    let cfEmail = req.headers['cf-access-authenticated-user-email'];
+// Sign-in (auth.js): Cloudflare Access tokens are verified; demo mode uses a signed cookie. Nothing else is trusted.
+const auth = require('./auth');
+const sessionSecret = (() => {
+    if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+    const f = path.join(path.dirname(path.resolve(config.dbPath)), 'session.secret');
+    if (!fs.existsSync(f)) fs.writeFileSync(f, require('crypto').randomBytes(32).toString('hex'), { mode: 0o600 });
+    return fs.readFileSync(f, 'utf8').trim();
+})();
+auth.demoRoutes(app, sessionSecret);
+app.get('/api/auth/config', (req, res) => res.json({ mode: auth.MODE, signIn: auth.MODE === 'demo' ? '/demo/signin' : null }));
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
 
-    // Always try to decode JWT if available (to extract name and other fields)
-    if (req.cookies && req.cookies.CF_Authorization) {
-        try {
-            // Decode JWT without verification (Cloudflare already verified it)
-            const decoded = jwt.decode(req.cookies.CF_Authorization);
-            console.log('=== Decoded JWT ===');
-            console.log('JWT payload:', decoded);
-            console.log('==================');
-
-            if (decoded && decoded.email) {
-                // Use JWT email if we don't have it from header
-                if (!cfEmail) {
-                    cfEmail = decoded.email;
-                }
-                // Always extract name from JWT
-                req.cfName = decoded.name || decoded.common_name || decoded.given_name || '';
-                console.log('Extracted name from JWT:', req.cfName);
-                console.log('Available name fields:', {
-                    name: decoded.name,
-                    common_name: decoded.common_name,
-                    given_name: decoded.given_name,
-                    family_name: decoded.family_name
-                });
-            }
-        } catch (err) {
-            console.error('Error decoding JWT:', err);
-        }
-    }
-
-    // Debug logging
-    console.log('=== Auth Debug ===');
-    console.log('Header email:', req.headers['cf-access-authenticated-user-email']);
-    console.log('Cookie JWT:', req.cookies.CF_Authorization ? 'Present' : 'Missing');
-    console.log('Final email:', cfEmail);
-    console.log('==================');
-
-    // Development Mode Mock
+const authenticateCF = async (req, res, next) => {
+    let who;
+    try { who = await auth.identify(req, sessionSecret); } catch { who = null; }
+    if (!who) return res.status(401).json({ error: 'Sign in required' });
     const db = readDb();
-    const settings = db.settings || { enableDevMock: true };
-
-    if (!cfEmail && process.env.NODE_ENV !== 'production' && settings.enableDevMock) {
-        req.user = {
-            email: 'dev@example.com',
-            username: 'Dev User',
-            role: 'admin'
-        };
-        return next();
-    }
-
-    if (!cfEmail) {
-        return res.status(401).json({ error: 'Missing Cloudflare Access token' });
-    }
-
-    let user = db.users.find(u => u.email === cfEmail);
-
-    // JIT Provisioning
+    let user = db.users.find(u => (u.email || '').toLowerCase() === who.email);
     if (!user) {
-        const isFirstUser = db.users.length === 0;
-        user = {
-            id: uuidv4(),
-            email: cfEmail,
-            username: cfEmail.split('@')[0],
-            name: req.cfName || '',
-            role: isFirstUser ? 'admin' : 'user',
-            createdAt: new Date().toISOString()
-        };
+        // New person. Admins: ADMIN_EMAILS if set, the demo admin, or (when neither is set) the very first person.
+        const admin = who.demoRole ? who.demoRole === 'admin' : ADMIN_EMAILS.length ? ADMIN_EMAILS.includes(who.email) : db.users.length === 0;
+        user = { id: uuidv4(), email: who.email, username: who.email.split('@')[0], name: who.name || '', role: admin ? 'admin' : 'user', createdAt: new Date().toISOString() };
         db.users.push(user);
         writeDb(db);
-    } else if (req.cfName && user.name !== req.cfName) {
-        // Update name if it changed or wasn't set
-        user.name = req.cfName;
+    } else if (who.name && user.name !== who.name) {
+        user.name = who.name;
         writeDb(db);
     }
-
     req.user = user;
     next();
 };
@@ -143,6 +96,7 @@ app.post('/api/auth/logout', (req, res) => {
     const settings = db.settings || {};
 
     res.clearCookie('CF_Authorization');
+    res.clearCookie(auth.DEMO_COOKIE);
 
     // Return logout URL if available (for forcing re-auth)
     const logoutUrl = settings.logoutUrl || null;
@@ -173,8 +127,9 @@ const requireAdmin = (req, res, next) => {
     });
 };
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, 'uploads');
+// Ensure uploads directory exists (UPLOADS_DIR, outside the code folder)
+const uploadDir = path.resolve(config.uploadsDir);
+fs.mkdirSync(uploadDir, { recursive: true });
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
@@ -198,27 +153,31 @@ if (ffmpeg && ffmpegPath && ffprobePath) {
     console.warn('WARNING: FFmpeg not fully loaded. Video processing will fail.');
 }
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static(uploadDir));
+// Videos and thumbnails are only for signed-in people.
+app.use('/uploads', (req, res, next) => authenticateCF(req, res, next), express.static(uploadDir, { dotfiles: 'deny', index: false }));
 
 // Helper to fix UTF-8 encoding from Multer
 const fixUtf8 = (str) => Buffer.from(str, 'latin1').toString('utf8');
 
-// Multer setup
+// Multer setup: size limit (MAX_FILE_SIZE), video files only, and a safe generated file name.
+const VIDEO_EXT = new Set(['.mp4', '.webm', '.mov', '.mkv', '.m4v', '.avi']);
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        // Fix encoding for the saved filename
-        const originalName = fixUtf8(file.originalname);
-        cb(null, Date.now() + '-' + originalName);
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => cb(null, `${Date.now()}-${uuidv4()}${path.extname(fixUtf8(file.originalname)).toLowerCase()}`)
+});
+const upload = multer({
+    storage,
+    limits: { fileSize: config.maxFileSize, files: 1, fields: 10, fieldSize: 10_000 },
+    fileFilter: (req, file, cb) => {
+        const ok = VIDEO_EXT.has(path.extname(file.originalname || '').toLowerCase()) && /^video\//.test(file.mimetype || '');
+        cb(ok ? null : Object.assign(new Error('Only video files can be uploaded'), { status: 400 }), ok);
     }
 });
-const upload = multer({ storage });
+// Tags arrive as JSON text; anything odd becomes no tags instead of crashing the server.
+const parseTags = (t) => { try { const a = typeof t === 'string' ? JSON.parse(t) : t; return Array.isArray(a) ? a.map((x) => String(x).trim().slice(0, 50)).filter(Boolean).slice(0, 30) : []; } catch { return []; } };
 
 
-app.get('/api/videos', (req, res) => {
+app.get('/api/videos', requireAuth, (req, res) => {
     const db = readDb();
     const activeVideos = db.videos.filter(v => !v.deleted);
     res.json(activeVideos);
@@ -229,8 +188,8 @@ app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
         return res.status(400).send('No file uploaded');
     }
 
-    const { title, category, tags } = req.body;
-    const db = readDb();
+    const { title, category } = req.body;
+    const tagList = parseTags(req.body.tags);
     const videoId = uuidv4();
     const thumbnailFilename = `thumb-${videoId}.png`;
 
@@ -245,6 +204,7 @@ app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
             size: '320x180'
         })
         .on('end', () => {
+            const db = readDb(); // read now, not before the thumbnail (another upload may have finished meanwhile)
             const newVideo = {
                 id: videoId,
                 title: title || originalName,
@@ -252,7 +212,7 @@ app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
                 path: `/uploads/${req.file.filename}`,
                 thumbnail: `/uploads/thumbnails/${thumbnailFilename}`,
                 category: category || 'Uncategorized',
-                tags: tags ? JSON.parse(tags) : [],
+                tags: tagList,
                 uploadedBy: req.user ? req.user.username : 'anonymous',
                 createdAt: new Date().toISOString()
             };
@@ -263,9 +223,8 @@ app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
                 db.categories.push(category);
             }
 
-            if (tags) {
-                const parsedTags = JSON.parse(tags);
-                parsedTags.forEach(tag => {
+            if (tagList.length) {
+                tagList.forEach(tag => {
                     if (!db.tags.includes(tag)) {
                         db.tags.push(tag);
                     }
@@ -276,7 +235,8 @@ app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
             res.json(newVideo);
         })
         .on('error', (err) => {
-            console.error('Error generating thumbnail:', err);
+            console.error('Error generating thumbnail:', err.message);
+            const db = readDb();
             const newVideo = {
                 id: videoId,
                 title: title || req.file.originalname,
@@ -284,7 +244,7 @@ app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
                 path: `/uploads/${req.file.filename}`,
                 thumbnail: null,
                 category: category || 'Uncategorized',
-                tags: tags ? JSON.parse(tags) : [],
+                tags: tagList,
                 uploadedBy: req.user ? req.user.username : 'anonymous',
                 createdAt: new Date().toISOString()
             };
@@ -299,7 +259,8 @@ app.post('/api/upload', requireAuth, upload.single('video'), (req, res) => {
 // Update video details (title, category, tags)
 app.patch('/api/videos/:id', requireAuth, (req, res) => {
     const { id } = req.params;
-    const { title, category, tags } = req.body;
+    const { title, category } = req.body;
+    const tags = req.body.tags === undefined ? undefined : parseTags(req.body.tags);
     const db = readDb();
     const video = db.videos.find(v => v.id === id);
 
@@ -657,8 +618,16 @@ if (fs.existsSync(publicPath)) {
     });
 }
 
-const server = app.listen(config.port, '0.0.0.0', () => {
-    console.log(`✓ Server running on http://0.0.0.0:${config.port}`);
+// Errors (upload too big, wrong file type, bad JSON) as a short message, never a stack trace.
+app.use((err, req, res, next) => {
+    const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : err.status || err.statusCode || 500;
+    if (status >= 500) console.error(req.method, req.path, err.message);
+    res.status(status).json({ error: status === 413 ? 'That file is too big' : status < 500 ? err.message : 'Something went wrong' });
+});
+
+const HOST = process.env.HOST || '127.0.0.1';
+const server = app.listen(config.port, HOST, () => {
+    console.log(`✓ Server running on http://${HOST}:${config.port} (sign-in: ${auth.MODE})`);
     console.log(`✓ Ready to accept connections`);
 });
 

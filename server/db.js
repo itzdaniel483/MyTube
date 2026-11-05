@@ -1,31 +1,26 @@
+// JSON database (lowdb-style file). 2026-11-05 claude: path from config (DB_PATH, outside the code folder),
+// and writes go to a temp file first then rename, so a crash mid-write can't leave a broken database.
 const fs = require('fs');
 const path = require('path');
+const config = require('./config');
 
-const DB_FILE = path.join(__dirname, 'db.json');
+const DB_FILE = path.resolve(config.dbPath);
+const EMPTY = () => ({ videos: [], categories: [], tags: [], users: [] });
 
-// Initialize DB if not exists
-if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({ videos: [], categories: [], tags: [], users: [] }, null, 2));
-}
+fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
+if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify(EMPTY(), null, 2), { mode: 0o600 });
 
 const readDb = () => {
-    if (!fs.existsSync(DB_FILE)) {
-        return { videos: [], categories: [], tags: [], users: [] };
-    }
-    const data = fs.readFileSync(DB_FILE);
-    const db = JSON.parse(data);
-
-    // Ensure all arrays exist (Schema Migration)
-    if (!db.users) db.users = [];
-    if (!db.videos) db.videos = [];
-    if (!db.categories) db.categories = [];
-    if (!db.tags) db.tags = [];
-
+    if (!fs.existsSync(DB_FILE)) return EMPTY();
+    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    for (const k of ['users', 'videos', 'categories', 'tags']) if (!Array.isArray(db[k])) db[k] = [];
     return db;
 };
 
 const writeDb = (data) => {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+    const tmp = `${DB_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), { mode: 0o600 });
+    fs.renameSync(tmp, DB_FILE);
 };
 
-module.exports = { readDb, writeDb };
+module.exports = { readDb, writeDb, DB_FILE };
