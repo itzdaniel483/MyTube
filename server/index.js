@@ -55,7 +55,11 @@ const sessionSecret = (() => {
     return fs.readFileSync(f, 'utf8').trim();
 })();
 auth.demoRoutes(app, sessionSecret);
-app.get('/api/auth/config', (req, res) => res.json({ mode: auth.MODE, signIn: auth.MODE === 'demo' ? '/demo/signin' : null }));
+// Public demo (claude, 20 Nov 2026): DEMO_READONLY=1 refuses every change (upload, edit, delete, categories...) so a
+// demo on the internet can be browsed and watched but never used to host anything. Sign-in (/demo/signin) still works.
+const DEMO_READONLY = process.env.DEMO_READONLY === '1';
+if (DEMO_READONLY) app.use('/api', (req, res, next) => (['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? next() : res.status(403).json({ error: 'This is a read-only demo: uploads and changes are switched off.' })));
+app.get('/api/auth/config', (req, res) => res.json({ mode: auth.MODE, signIn: auth.MODE === 'demo' ? '/demo/signin' : null, readOnly: DEMO_READONLY }));
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
 
 const authenticateCF = async (req, res, next) => {
