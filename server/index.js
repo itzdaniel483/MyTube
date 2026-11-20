@@ -58,7 +58,8 @@ auth.demoRoutes(app, sessionSecret);
 // Public demo (claude, 20 Nov 2026): DEMO_READONLY=1 refuses every change (upload, edit, delete, categories...) so a
 // demo on the internet can be browsed and watched but never used to host anything. Sign-in (/demo/signin) still works.
 const DEMO_READONLY = process.env.DEMO_READONLY === '1';
-if (DEMO_READONLY) app.use('/api', (req, res, next) => (['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? next() : res.status(403).json({ error: 'This is a read-only demo: uploads and changes are switched off.' })));
+// Sign-out only clears cookies, so it stays allowed (codex review 6243).
+if (DEMO_READONLY) app.use('/api', (req, res, next) => (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || (req.method === 'POST' && req.path === '/auth/logout') ? next() : res.status(403).json({ error: 'This is a read-only demo: uploads and changes are switched off.' })));
 app.get('/api/auth/config', (req, res) => res.json({ mode: auth.MODE, signIn: auth.MODE === 'demo' ? '/demo/signin' : null, readOnly: DEMO_READONLY }));
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
 
@@ -71,10 +72,11 @@ const authenticateCF = async (req, res, next) => {
     if (!user) {
         // New person. Admins: ADMIN_EMAILS if set, the demo admin, or (when neither is set) the very first person.
         const admin = who.demoRole ? who.demoRole === 'admin' : ADMIN_EMAILS.length ? ADMIN_EMAILS.includes(who.email) : db.users.length === 0;
-        user = { id: uuidv4(), email: who.email, username: who.email.split('@')[0], name: who.name || '', role: admin ? 'admin' : 'user', createdAt: new Date().toISOString() };
-        db.users.push(user);
-        writeDb(db);
-    } else if (who.name && user.name !== who.name) {
+        // Read-only demo: never write. The person gets a stable id derived from their email instead of a stored record.
+        const id = DEMO_READONLY ? 'demo-' + require('crypto').createHash('sha256').update(who.email).digest('hex').slice(0, 16) : uuidv4();
+        user = { id, email: who.email, username: who.email.split('@')[0], name: who.name || '', role: admin ? 'admin' : 'user', createdAt: new Date().toISOString() };
+        if (!DEMO_READONLY) { db.users.push(user); writeDb(db); }
+    } else if (who.name && user.name !== who.name && !DEMO_READONLY) {
         user.name = who.name;
         writeDb(db);
     }

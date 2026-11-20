@@ -2,11 +2,14 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const AuthContext = createContext();
 
+// eslint-disable-next-line react-refresh/only-export-components -- the hook lives next to its provider
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Public read-only demo (server DEMO_READONLY=1): hide every upload/edit/admin control (codex review 6243).
+  const [readOnly, setReadOnly] = useState(false);
 
   const checkAuth = async () => {
     // Check if explicitly logged out (persistent)
@@ -41,6 +44,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     checkAuth();
+    fetch('/api/auth/config').then((r) => r.json()).then((c) => setReadOnly(!!c.readOnly)).catch(() => {});
   }, []);
 
   const login = async () => {
@@ -79,7 +83,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, readOnly }}>
       {!loading && children}
     </AuthContext.Provider>
   );

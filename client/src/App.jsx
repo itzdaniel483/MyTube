@@ -18,7 +18,7 @@ function AppContent() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
 
-  const { user, logout, login, loading } = useAuth();
+  const { user, logout, login, loading, readOnly } = useAuth();
 
   const fetchVideos = async () => {
     try {
@@ -43,6 +43,7 @@ function AppContent() {
 
   useEffect(() => {
     if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch videos when someone signs in
       fetchVideos();
       fetchMetadata();
     }
@@ -50,6 +51,7 @@ function AppContent() {
 
   useEffect(() => {
     if (view === 'home' && user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh the gallery when returning home
       fetchVideos();
     }
   }, [view, user]);
@@ -226,6 +228,7 @@ function AppContent() {
               >
                 Gallery
               </button>
+              {!readOnly && (<>
               <button
                 onClick={() => setView('myvideos')}
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${view === 'myvideos' ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/25' : 'text-gray-400 hover:text-white hover:bg-dark-800'}`}
@@ -238,7 +241,8 @@ function AppContent() {
               >
                 Upload
               </button>
-              {user?.role === 'admin' && (
+              </>)}
+              {user?.role === 'admin' && !readOnly && (
                 <>
                   <button
                     onClick={() => setView('users')}
@@ -280,15 +284,22 @@ function AppContent() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 pt-28 pb-12">
 
+        {/* Public read-only demo banner */}
+        {readOnly && (
+          <div className="mb-6 px-4 py-3 rounded-xl border border-primary-500/40 bg-primary-600/10 text-sm text-gray-200" role="status">
+            👀 <b>Public demo</b>: you can browse and watch. Uploading, editing and admin pages are switched off here.
+          </div>
+        )}
+
         {/* Upload View */}
-        {view === 'upload' && (
+        {view === 'upload' && !readOnly && (
           <div className="animate-fade-in">
             <UploadForm onUploadSuccess={handleUploadSuccess} />
           </div>
         )}
 
         {/* My Videos View */}
-        {view === 'myvideos' && (
+        {view === 'myvideos' && !readOnly && (
           <div className="animate-fade-in">
             <MyVideos />
           </div>
@@ -368,13 +379,13 @@ function AppContent() {
               <div className="text-center py-24">
                 <div className="text-6xl mb-4">📹</div>
                 <h3 className="text-2xl font-bold text-white mb-2">No videos found</h3>
-                <p className="text-gray-400 mb-8">Upload a video to get started or try clearing your filters.</p>
-                <button
+                <p className="text-gray-400 mb-8">{readOnly ? 'Try clearing your filters.' : 'Upload a video to get started or try clearing your filters.'}</p>
+                {!readOnly && <button
                   onClick={handleUploadClick}
                   className="px-6 py-3 bg-primary-600 text-white rounded-xl font-bold hover:bg-primary-700 transition-colors shadow-lg shadow-primary-500/25"
                 >
                   Upload Video
-                </button>
+                </button>}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
@@ -392,21 +403,21 @@ function AppContent() {
         )}
 
         {/* Users View */}
-        {view === 'users' && (
+        {view === 'users' && !readOnly && (
           <div className="animate-fade-in">
             <UserManagement />
           </div>
         )}
 
         {/* Settings View */}
-        {view === 'settings' && user.role === 'admin' && (
+        {view === 'settings' && user.role === 'admin' && !readOnly && (
           <div className="animate-fade-in">
             <SettingsPage />
           </div>
         )}
 
         {/* Trash View */}
-        {view === 'trash' && (
+        {view === 'trash' && !readOnly && (
           <div className="animate-fade-in">
             <Trash />
           </div>

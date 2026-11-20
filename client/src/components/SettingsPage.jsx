@@ -84,7 +84,7 @@ const SettingsPage = () => {
             } else {
                 setMessage({ type: 'error', text: 'Failed to save settings' });
             }
-        } catch (err) {
+        } catch {
             setMessage({ type: 'error', text: 'Error saving settings' });
         } finally {
             setSaving(false);
@@ -113,7 +113,7 @@ const SettingsPage = () => {
             } else {
                 setProfileMessage({ type: 'error', text: 'Failed to update profile' });
             }
-        } catch (err) {
+        } catch {
             setProfileMessage({ type: 'error', text: 'Error updating profile' });
         } finally {
             setSavingProfile(false);
@@ -142,7 +142,7 @@ const SettingsPage = () => {
                 const error = await res.json();
                 setCategoryMessage({ type: 'error', text: error.error || 'Failed to add category' });
             }
-        } catch (err) {
+        } catch {
             setCategoryMessage({ type: 'error', text: 'Error adding category' });
         }
     };
@@ -164,7 +164,7 @@ const SettingsPage = () => {
                 const error = await res.json();
                 setCategoryMessage({ type: 'error', text: error.error || 'Failed to delete category' });
             }
-        } catch (err) {
+        } catch {
             setCategoryMessage({ type: 'error', text: 'Error deleting category' });
         }
     };
@@ -196,7 +196,7 @@ const SettingsPage = () => {
                 const error = await res.json();
                 setCategoryMessage({ type: 'error', text: error.error || 'Failed to update category' });
             }
-        } catch (err) {
+        } catch {
             setCategoryMessage({ type: 'error', text: 'Error updating category' });
         } finally {
             setEditingCategory(null);

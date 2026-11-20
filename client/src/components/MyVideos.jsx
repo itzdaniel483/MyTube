@@ -9,9 +9,10 @@ const MyVideos = () => {
 
     useEffect(() => {
         fetchMyVideos();
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- load once when the page opens
     }, []);
 
-    const fetchMyVideos = async () => {
+    async function fetchMyVideos() {
         try {
             const response = await fetch('/api/videos', {
                 credentials: 'include'
@@ -29,7 +30,7 @@ const MyVideos = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     const handleDelete = (videoId) => {
         setVideos(videos.filter(v => v.id !== videoId));

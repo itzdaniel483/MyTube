@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const VideoCard = ({ video, onClick, onDelete }) => {
-    const { user } = useAuth();
+    const { user, readOnly } = useAuth();
     const [showConfirm, setShowConfirm] = useState(false);
 
     const handleDeleteClick = (e) => {
@@ -68,7 +68,7 @@ const VideoCard = ({ video, onClick, onDelete }) => {
             </div>
 
             {/* Admin Delete Button */}
-            {user?.role === 'admin' && (
+            {user?.role === 'admin' && !readOnly && (
                 <button
                     onClick={handleDeleteClick}
                     className="absolute top-2 right-2 p-2 bg-red-600/80 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"

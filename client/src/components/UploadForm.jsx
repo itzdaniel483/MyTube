@@ -10,11 +10,8 @@ const UploadForm = ({ onUploadSuccess }) => {
     const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
     const [uploadResults, setUploadResults] = useState([]);
 
-    useEffect(() => {
-        fetchCategories();
-    }, []);
 
-    const fetchCategories = async () => {
+    async function fetchCategories() {
         try {
             const res = await fetch('/api/categories');
             if (res.ok) {
@@ -24,7 +21,12 @@ const UploadForm = ({ onUploadSuccess }) => {
         } catch (err) {
             console.error('Failed to fetch categories', err);
         }
-    };
+    }
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- load the category list once when the form opens
+        fetchCategories();
+    }, []);
 
     const handleFileChange = (e) => {
         const selectedFiles = Array.from(e.target.files);

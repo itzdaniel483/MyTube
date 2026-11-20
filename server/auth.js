@@ -70,7 +70,8 @@ function demoRoutes(app, secret) {
 button{display:block;width:100%;text-align:left;margin:0 0 10px;padding:16px 18px;border-radius:12px;border:1px solid #334155;background:#1e293b;color:#fff;font:inherit;cursor:pointer}button:hover{border-color:#ef4444}button small{display:block;color:#94a3b8;margin-top:2px}</style></head><body><main>${body}</main></body></html>`;
     app.get('/demo/signin', (req, res) => {
         res.set('Cache-Control', 'no-store').send(page(`<h1>MyTube demo</h1><p>Made-up videos. Pick who to be:</p>
-<form method="post" action="/demo/signin">${DEMO_PEOPLE.map((p) => `<button name="who" value="${p.key}">${p.name}<small>${p.role === 'admin' ? 'Can upload, edit, delete and manage users' : 'Can watch and upload'}</small></button>`).join('')}</form>`));
+${process.env.DEMO_READONLY === '1' ? '<p><b>Public read-only demo:</b> browse and watch only. Uploads and changes are switched off.</p>' : ''}
+<form method="post" action="/demo/signin">${DEMO_PEOPLE.map((p) => `<button name="who" value="${p.key}">${p.name}<small>${process.env.DEMO_READONLY === '1' ? (p.role === 'admin' ? 'Sees the admin view (read-only here)' : 'Sees the viewer view') : p.role === 'admin' ? 'Can upload, edit, delete and manage users' : 'Can watch and upload'}</small></button>`).join('')}</form>`));
     });
     app.post('/demo/signin', require('express').urlencoded({ extended: false, limit: '1kb' }), (req, res) => {
         const p = DEMO_PEOPLE.find((x) => x.key === req.body?.who);

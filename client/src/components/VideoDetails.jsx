@@ -10,7 +10,7 @@ const VideoDetails = ({ video, onTagsUpdate, onVideoDeleted }) => {
     const [saving, setSaving] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
-    const { user } = useAuth();
+    const { user, readOnly } = useAuth();
 
     useEffect(() => {
         fetchCategories();
@@ -28,7 +28,7 @@ const VideoDetails = ({ video, onTagsUpdate, onVideoDeleted }) => {
         }
     };
 
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = user?.role === 'admin' && !readOnly;
 
     const handleEditClick = () => {
         setEditedTags(video.tags ? video.tags.join(', ') : '');

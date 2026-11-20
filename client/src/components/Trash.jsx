@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 
 const Trash = () => {
     const [deletedVideos, setDeletedVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
-    const { user } = useAuth();
 
     useEffect(() => {
         fetchTrash();
